@@ -13,6 +13,7 @@ class PDF2XLApp:
         Initializes the app and sets up the basic page layout
         """
 
+        self.api_key_input = ""
         self._api_key = GeminiAPIController.load_api_key()
 
         st.set_page_config(page_title="PDF2XL", layout="wide")
@@ -27,7 +28,7 @@ class PDF2XLApp:
             1. Open Google AI Studio
             2. Click 'Get API Key'
             3. Click 'Generate API Key'
-            4. Copy the key here]
+            4. Copy the key here
             
             All Done!""")
 
@@ -42,14 +43,22 @@ class PDF2XLApp:
     def save_api_key(self, new_key: str):
         GeminiAPIController.update_api_key(new_key)
 
-    def locateFileReceiver(self) -> UploadedFile:
-        st.subheader("Upload the file")
-        return st.file_uploader( label="Upload all PDFs", label_visibility="collapsed", type="pdf", accept_multiple_files=True)
+    def locate_file_receiver(self) -> UploadedFile:
+        st.subheader("Upload Single PDF File")
+        return st.file_uploader( label="Upload all PDFs", label_visibility="collapsed", type="pdf", accept_multiple_files=False)
 
-    def renderFileAnalysis(self):
+    def analyze_file(self, file: UploadedFile):
         st.divider()
+        # with st.empty():
         with st.spinner(text="Processing your file using your computer..."):
-            pdf_processor = PDFAnalyzer()
-            pdf_processor.analyze_pdf()
-            time.sleep(10)
-            st.write("Done")
+            pdf_processor = PDFAnalyzer(self._api_key)
+
+            with st.spinner("Retrieving Images from PDF..."):
+                images = pdf_processor.get_pdf_images(file)
+
+                with st.spinner("Analyzing the Images..."):
+                    gemini_controller = GeminiAPIController(self._api_key)
+                    response = gemini_controller.get_xl_for_images(images)
+                    # pdf_processor.analyze_pdf(file)
+                    st.code(response, language="csv")
+                    st.download_button( label="Download CSV", data = response, type="primary", file_name=f"{file.name.removesuffix(".pdf")}.csv")
